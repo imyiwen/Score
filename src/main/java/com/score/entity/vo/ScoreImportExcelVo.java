@@ -1,4 +1,4 @@
-package com.score.entity;
+package com.score.entity.vo;
 
 
 import com.alibaba.excel.annotation.ExcelProperty;
@@ -14,15 +14,15 @@ import java.math.BigDecimal;
 @Data
 public class ScoreImportExcelVo {
 
-    @ExcelProperty(index=0,value="学号")
+    @ExcelProperty("学号")
     private String studentNo;
 
-    @ExcelProperty(index=1,value="姓名")
+    @ExcelProperty("姓名")
     private String studentName;
 
-    @ExcelProperty(index=2,value="科目")
+    @ExcelProperty("科目")
     private String subject;
 
-    @ExcelProperty(index=3,value="分数")
+    @ExcelProperty("分数")
     private BigDecimal score;
 }
