@@ -1,9 +1,9 @@
 package com.score.service.impl;
 
 import com.alibaba.excel.EasyExcel;
-import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.score.Listener.StudentImportListener;
 import com.score.common.ResultVo;
 import com.score.common.UserContext;
 import com.score.entity.Admin;
@@ -17,6 +17,7 @@ import com.score.mapper.AdminMapper;
 import com.score.mapper.ScoreMapper;
 import com.score.mapper.StudentMapper;
 import com.score.service.IScoreService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -28,127 +29,104 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-/**
- * @author imyiwen
- * @data 2026/4/22 9:45
- */
-
+@Slf4j
 @Service
 public class ScoreServiceImpl implements IScoreService {
 
     @Resource
     private AdminMapper adminMapper;
-
     @Resource
     private ScoreMapper scoreMapper;
     @Autowired
     private StudentMapper studentMapper;
 
-    /**
-     * 学生查询成绩
-     * @param bo
-     * @return
-     */
-    @InterceptorIgnore(tenantLine = "true")
     @Override
     public ResultVo<?> queryScore(StudentQueryScoreBo bo) {
         if (bo == null || !StringUtils.hasText(bo.getStudentName())) {
             return ResultVo.error("查询失败：姓名不能为空");
         }
-        LambdaQueryWrapper<Score> lqw=buildScoreQueryWrapper(bo,true);
+        if (bo == null || !StringUtils.hasText(bo.getIdCard())) {
+            return ResultVo.error("查询失败：身份证号不能为空");
+        }
+        LambdaQueryWrapper<Score> lqw = buildScoreQueryWrapper(bo, true);
         return ResultVo.success(scoreMapper.selectList(lqw));
     }
 
-    /**
-     * 教师查询成绩（分页）
-     * @param bo
-     * @return
-     */
     @Override
     public ResultVo<?> checkList(StudentQueryScoreBo bo) {
-        if (bo != null && StringUtils.hasText(bo.getClassName())) {
-            UserContext.setClassName(bo.getClassName());
+        if (bo != null) {
+            if (StringUtils.hasText(bo.getClassName())) {
+                UserContext.setClassName(bo.getClassName());
+            }
+            if (StringUtils.hasText(bo.getUserName())) {
+                UserContext.setUserName(bo.getUserName());
+            }
         }
         try {
-            // 分页参数获取
             Page<Score> page = new Page<>(bo.getPageNum(), bo.getPageSize());
-            LambdaQueryWrapper<Score> lqw=buildScoreQueryWrapper(bo,false);
-            // selectPage 会自动处理总数和当前页数据
+            LambdaQueryWrapper<Score> lqw = buildScoreQueryWrapper(bo, false);
             return ResultVo.success(scoreMapper.selectPage(page, lqw));
         } finally {
             UserContext.remove();
         }
     }
 
-    /**
-     *教师登录
-     */
     @Override
-    public ResultVo<?> login(AdminBo bo){
-        LambdaQueryWrapper<Admin> lqw =buildAdminQueryWrapper(bo);
+    public ResultVo<?> login(AdminBo bo) {
+        LambdaQueryWrapper<Admin> lqw = buildAdminQueryWrapper(bo);
         return ResultVo.success(adminMapper.selectOne(lqw));
     }
 
-    /**
-     * 导入学生信息
-     */
     @Override
-    public ResultVo<?> importStudent(MultipartFile file,String className){
+    public ResultVo<?> importStudent(MultipartFile file, String className) {
         UserContext.setClassName(className);
-        try{
-            List<StudentImportExcelVo> list = EasyExcel.read(file.getInputStream())
-                    .head(StudentImportExcelVo.class)
+        try {
+            EasyExcel.read(file.getInputStream(), StudentImportExcelVo.class, 
+                    new StudentImportListener(studentMapper, className))
                     .sheet()
-                    .doReadSync();
-
-            List<Student> students =new ArrayList<>();
-            for(StudentImportExcelVo vo:list){
-                Student student =new Student();
-                student.setStudentName(vo.getStudentName());
-                student.setIdCard(vo.getIdCard());
-                student.setClassName(className);
-                student.setDelFlag("0");
-                student.setCreateTime(new Date());
-                students.add(student);
-            }
-            // 后续可优化为 saveBatch
-            for(Student student:students){
-                studentMapper.insert(student);
-            }
-            return ResultVo.success("导入成功"+students.size()+"条学生信息");
-        }catch(IOException e){
+                    .doRead();
+            return ResultVo.success("学生信息导入成功");
+        } catch (IOException e) {
+            log.error("导入异常", e);
             return ResultVo.error("解析Excel失败");
-        }finally {
+        } finally {
             UserContext.remove();
         }
     }
 
-    /**
-     * 导入成绩
-     */
     @Override
-    public ResultVo<?> importScores(MultipartFile file,String examName){
-        try{
+    public ResultVo<?> importScores(MultipartFile file, String examName, String className) {
+        UserContext.setClassName(className);
+        try {
             List<ScoreImportExcelVo> list = EasyExcel.read(file.getInputStream())
                     .head(ScoreImportExcelVo.class)
                     .sheet()
                     .doReadSync();
 
-            List<Score> scores =new ArrayList<>();
-            for(ScoreImportExcelVo vo:list){
+            List<Score> scores = new ArrayList<>();
+            String lastStudentName = "";
+
+            for (ScoreImportExcelVo vo : list) {
+                if (vo == null || (!StringUtils.hasText(vo.getStudentName()) && !StringUtils.hasText(vo.getSubject()))) {
+                    continue;
+                }
+                if (!StringUtils.hasText(vo.getStudentName())) {
+                    vo.setStudentName(lastStudentName);
+                } else {
+                    lastStudentName = vo.getStudentName();
+                }
+
                 LambdaQueryWrapper<Student> queryWrapper = new LambdaQueryWrapper<>();
-                queryWrapper.eq(Student::getStudentName,vo.getStudentName())
-                        .eq(Student::getDelFlag,"0");
-                // 此处查询会受租户影响，导入时需确保老师已登录且 UserContext 已设置
+                queryWrapper.eq(Student::getStudentName, vo.getStudentName())
+                        .eq(Student::getDelFlag, "0");
                 List<Student> students = studentMapper.selectList(queryWrapper);
 
-                if(students.isEmpty()){
-                    return ResultVo.error("导入失败：学生["+vo.getStudentName()+"]不在本班档案中，请检查姓名或先导入学生信息!");
+                if (students.isEmpty()) {
+                    log.warn("学生[{}]不在档案中", vo.getStudentName());
+                    continue;
                 }
-                if(students.size()>1){
-                    return ResultVo.error("导入失败：发现重名学生["+vo.getStudentName()+"],请在档案中核对身份证号");
-                }
-                Score score=new Score();
+                
+                Score score = new Score();
                 score.setStudentName(vo.getStudentName());
                 score.setIdCard(students.get(0).getIdCard());
                 score.setClassName(students.get(0).getClassName());
@@ -159,43 +137,61 @@ public class ScoreServiceImpl implements IScoreService {
                 score.setCreateTime(new Date());
                 scores.add(score);
             }
-            for(Score score:scores){
+            
+            for (Score score : scores) {
                 scoreMapper.insert(score);
             }
-            return ResultVo.success("成功导入"+scores.size()+"条成绩记录");
-        }catch (IOException e){
+            return ResultVo.success("成功导入" + scores.size() + "条成绩记录");
+        } catch (IOException e) {
+            log.error("解析异常", e);
             return ResultVo.error("解析Excel失败");
+        } finally {
+            UserContext.remove();
         }
     }
-    /**
-     * 封装成绩查询条件
-     */
-    private LambdaQueryWrapper<Score> buildScoreQueryWrapper(StudentQueryScoreBo bo,boolean isExact){
-        LambdaQueryWrapper<Score> lqw=new LambdaQueryWrapper();
-        if(bo!=null){
-            if(isExact){
-                //学生查：精准匹配
-                lqw.eq(StringUtils.hasText(bo.getStudentName()),Score::getStudentName,bo.getStudentName());
-                lqw.eq(StringUtils.hasText(bo.getIdCard()),Score::getIdCard,bo.getIdCard());
-            }else{
-                //老师查 模糊匹配
-                lqw.like(StringUtils.hasText(bo.getStudentName()),Score::getStudentName,bo.getStudentName());
+
+    public ResultVo<?> creatAdmin(AdminBo bo) {
+        if(bo==null||!StringUtils.hasText(bo.getUserName())||!StringUtils.hasText(bo.getPassword())||!StringUtils.hasText(bo.getClassName())){
+            return ResultVo.error("创建失败：用户名或密码或班级不能为空！");
+        }
+        LambdaQueryWrapper<Admin> lqw = new LambdaQueryWrapper<>();
+        lqw.eq(Admin::getUserName, bo.getUserName())
+                .eq(Admin::getDelFlag, "0");
+        if(adminMapper.selectCount(lqw)>0){
+            return ResultVo.error("创建失败：用户名：【"+bo.getUserName()+"】，已存在！");
+        }
+        Admin admin = new Admin();
+        admin.setUserName(bo.getUserName());
+        admin.setPassword(bo.getPassword());
+        admin.setClassName(bo.getClassName());
+        admin.setCreateTime(new Date());
+        admin.setDelFlag("0");
+        int rows = adminMapper.insert(admin);
+        return rows >0 ? ResultVo.success("创建成功！"):ResultVo.error("创建失败");
+    }
+
+    private LambdaQueryWrapper<Score> buildScoreQueryWrapper(StudentQueryScoreBo bo, boolean isExact) {
+        LambdaQueryWrapper<Score> lqw = new LambdaQueryWrapper<>();
+        if (bo != null) {
+            if (isExact) {
+                lqw.eq(StringUtils.hasText(bo.getStudentName()), Score::getStudentName, bo.getStudentName());
+                lqw.eq(StringUtils.hasText(bo.getIdCard()), Score::getIdCard, bo.getIdCard());
+            } else {
+                lqw.like(StringUtils.hasText(bo.getStudentName()), Score::getStudentName, bo.getStudentName());
             }
         }
-        lqw.eq(Score::getDelFlag,"0").orderByDesc(Score::getCreateTime);
+        lqw.eq(Score::getDelFlag, "0").orderByDesc(Score::getCreateTime);
         return lqw;
     }
 
-    /**
-     * 封装教师登录
-     */
-    private LambdaQueryWrapper<Admin> buildAdminQueryWrapper(AdminBo bo){
-        LambdaQueryWrapper<Admin> lqw=new LambdaQueryWrapper();
-        if(bo!=null){
-            lqw.eq(StringUtils.hasText(bo.getUsername()),Admin::getUsername,bo.getUsername());
-            lqw.eq(StringUtils.hasText(bo.getPassword()),Admin::getPassword,bo.getPassword());
+    private LambdaQueryWrapper<Admin> buildAdminQueryWrapper(AdminBo bo) {
+        LambdaQueryWrapper<Admin> lqw = new LambdaQueryWrapper<>();
+        if (bo != null) {
+            // 这里使用了 Admin::getUserName，配合 @TableField("username") 注解，就能完美运行
+            lqw.eq(StringUtils.hasText(bo.getUserName()), Admin::getUserName, bo.getUserName());
+            lqw.eq(StringUtils.hasText(bo.getPassword()), Admin::getPassword, bo.getPassword());
         }
-        lqw.eq(Admin::getDelFlag,"0");
+        lqw.eq(Admin::getDelFlag, "0");
         return lqw;
     }
 }

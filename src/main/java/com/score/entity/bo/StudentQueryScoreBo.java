@@ -9,21 +9,14 @@ import lombok.Data;
 @Data
 public class StudentQueryScoreBo {
     private String studentName;
-    /**
-     * 身份证
-     */
     private String idCard;
-    /**
-     * 班级名（多租户过滤用）
-     */
     private String className;
 
-    /**
-     * 当前页码
-     */
     private Integer pageNum = 1;
-    /**
-     * 每页数量
-     */
     private Integer pageSize = 10;
+
+    /**
+     * 恢复驼峰命名
+     */
+    private String userName;
 }

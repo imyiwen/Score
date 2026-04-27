@@ -38,5 +38,10 @@ public interface IScoreService {
     /**
      * 导入成绩数据
      */
-    ResultVo<?> importScores(MultipartFile file,String examName);
+    ResultVo<?> importScores(MultipartFile file,String examName,String className);
+
+    /**
+     * 教师新建用户
+     */
+    ResultVo<?> creatAdmin(AdminBo adminBo);
 }

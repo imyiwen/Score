@@ -1,5 +1,6 @@
 package com.score.entity.bo;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 /**
@@ -8,6 +9,11 @@ import lombok.Data;
  */
 @Data
 public class AdminBo {
-    private String username;
+    @JsonProperty("userName")
+    private String userName;
+    
     private String password;
+    
+    @JsonProperty("className")
+    private String className;
 }

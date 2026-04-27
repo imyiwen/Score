@@ -1,8 +1,14 @@
 package com.score.mapper;
 
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.toolkit.Constants;
 import com.score.entity.Score;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
 
 /**
  * @author imyiwen
@@ -11,4 +17,10 @@ import org.apache.ibatis.annotations.Mapper;
 
 @Mapper
 public interface ScoreMapper extends BaseMapper<Score> {
+
+    /**
+     * 忽略租户检查的列表查询（用于学生查询）
+     */
+    @InterceptorIgnore(tenantLine = "true")
+    List<Score> selectList(@Param(Constants.WRAPPER) Wrapper<Score> queryWrapper);
 }
