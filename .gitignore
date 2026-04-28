@@ -34,8 +34,6 @@ build/
 ### VS Code ###
 .vscode/
 
-### Spring Boot Config ###
-src/main/resources/application.yml
 
 ### Mac OS ###
 .DS_Store

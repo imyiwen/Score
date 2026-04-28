@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.core.toolkit.Constants;
 import com.score.entity.Score;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
 
@@ -17,10 +18,8 @@ import java.util.List;
 
 @Mapper
 public interface ScoreMapper extends BaseMapper<Score> {
-
-    /**
-     * 忽略租户检查的列表查询（用于学生查询）
-     */
-    @InterceptorIgnore(tenantLine = "true")
-    List<Score> selectList(@Param(Constants.WRAPPER) Wrapper<Score> queryWrapper);
+    //忽略租户隔离
+    @InterceptorIgnore(tenantLine="true")
+    @Select("SELECT * FROM score ${ew.customSqlSegment}")
+    List<Score> studentQuery(@Param(Constants.WRAPPER) Wrapper<Score> queryWrapper);
 }

@@ -11,6 +11,7 @@ public class StudentQueryScoreBo {
     private String studentName;
     private String idCard;
     private String className;
+    private String examName;
 
     private Integer pageNum = 1;
     private Integer pageSize = 10;

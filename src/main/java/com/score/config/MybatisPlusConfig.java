@@ -29,7 +29,7 @@ public class MybatisPlusConfig {
             @Override
             public Expression getTenantId() {
                 String className = UserContext.getClassName();
-                return className != null ? new StringValue(className) : null;
+                return new StringValue(className != null ? className : "DENY_ACCESS");
             }
 
             @Override
