@@ -16,7 +16,6 @@ import org.springframework.context.annotation.Configuration;
  */
 import com.baomidou.mybatisplus.annotation.DbType;
 import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
-// ... (existing imports)
 
 @Configuration
 public class MybatisPlusConfig {
@@ -47,7 +46,7 @@ public class MybatisPlusConfig {
             }
         }));
 
-        // 2. 添加分页插件 (MySQL 数据库)
+        // 添加分页插件
         interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL));
 
         return interceptor;

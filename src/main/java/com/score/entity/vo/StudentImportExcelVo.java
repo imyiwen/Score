@@ -10,12 +10,12 @@ import lombok.Data;
 @Data
 public class StudentImportExcelVo {
 
-    @ExcelProperty(index = 0,value = "姓名")
+    @ExcelProperty(value = "姓名")
     private String studentName;
 
-    @ExcelProperty(index = 1,value = "身份证号")
+    @ExcelProperty(value = "身份证号")
     private String idCard;
-
+    @ExcelProperty(value = "班级")
     private String className;
 
 

@@ -19,11 +19,14 @@ import com.score.mapper.AdminMapper;
 import com.score.mapper.ScoreMapper;
 import com.score.mapper.StudentMapper;
 import com.score.service.IScoreService;
+import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -64,16 +67,29 @@ public class ScoreServiceImpl implements IScoreService {
 
     @Override
     public ResultVo<?> login(AdminBo bo) {
+        ServletRequestAttributes attributes=(ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if(attributes==null){
+            return ResultVo.error("系统繁忙，请稍后再试");
+        }
+        HttpSession session = attributes.getRequest().getSession();
+        String captchaId =bo.getCaptchaId();
+        if(captchaId==null||captchaId.isEmpty()){
+            return ResultVo.error("安全验证标识不能为空：请刷新页面");
+        }
+        Boolean verified = (Boolean) session.getAttribute("captcha_verified_"+captchaId);
+        if(verified==null||!verified){
+            return ResultVo.error("安全验证未通过，请重试");
+        }
+        session.removeAttribute("captcha_verified_"+captchaId);
+        log.info("验证成功");
         if (bo == null || !StringUtils.hasText(bo.getUserName())) {
             return ResultVo.error("登录失败：用户名不能为空");
         }
-        
-        // 1. 只根据用户名查询用户
+
         LambdaQueryWrapper<Admin> lqw = new LambdaQueryWrapper<>();
         lqw.eq(Admin::getUserName, bo.getUserName()).eq(Admin::getDelFlag, "0");
         Admin admin = adminMapper.selectOne(lqw);
 
-        // 2. 严谨校验：用户是否存在
         if (admin == null) {
             return ResultVo.error("登录失败：用户名或密码错误");
         }
@@ -86,7 +102,7 @@ public class ScoreServiceImpl implements IScoreService {
         // 4. 登录成功
         StpUtil.login(admin.getUserName());
         StpUtil.getSession().set("className", admin.getClassName());
-        return ResultVo.success(StpUtil.getTokenValue());
+        return ResultVo.success(StpUtil.getTokenValue()+"登陆成功");
     }
 
     @Override

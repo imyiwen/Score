@@ -16,4 +16,6 @@ public class AdminBo {
     
     @JsonProperty("className")
     private String className;
+
+    private String captchaId;
 }
