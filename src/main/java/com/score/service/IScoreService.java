@@ -44,4 +44,19 @@ public interface IScoreService {
      * 教师新建用户
      */
     ResultVo<?> creatAdmin(AdminBo adminBo);
+
+    /**
+     * 获取用户列表
+     */
+    ResultVo<?> getUserList(Integer pageNum, Integer pageSize);
+
+    /**
+     * 更新用户信息
+     */
+    ResultVo<?> updateUser(AdminBo adminBo);
+
+    /**
+     * 删除用户
+     */
+    ResultVo<?> deleteUser(String userName);
 }

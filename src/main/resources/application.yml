@@ -9,6 +9,8 @@ spring:
     username: ${DB_USER}
     password: ${DB_PWD}
     driver-class-name: com.mysql.cj.jdbc.Driver
+  autoconfigure:
+    exclude:org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
 
   mvc:
     format:

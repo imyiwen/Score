@@ -1,5 +1,6 @@
 package com.score.config;
 
+import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.handler.TenantLineHandler;
 import com.baomidou.mybatisplus.extension.plugins.inner.TenantLineInnerInterceptor;
@@ -28,8 +29,11 @@ public class MybatisPlusConfig {
         interceptor.addInnerInterceptor(new TenantLineInnerInterceptor(new TenantLineHandler() {
             @Override
             public Expression getTenantId() {
-                String className = UserContext.getClassName();
-                return new StringValue(className != null ? className : "DENY_ACCESS");
+                if(StpUtil.isLogin()){
+                    String className =(String) StpUtil.getSession().get("className");
+                    return new StringValue(className !=null?className:"DENY_ACCESS");
+                }
+                return new StringValue("DENY_ACCESS");
             }
 
             @Override

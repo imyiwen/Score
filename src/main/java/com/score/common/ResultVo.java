@@ -32,4 +32,11 @@ public class ResultVo<T> {
         resultVo.setData(null);
         return resultVo;
     }
+    public static <T> ResultVo<T> error(int code, String msg) {
+        ResultVo<T> resultVo = new ResultVo<T>();
+        resultVo.setCode(code);
+        resultVo.setMsg(msg);
+        resultVo.setData(null);
+        return resultVo;
+    }
 }

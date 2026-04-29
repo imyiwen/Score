@@ -53,4 +53,19 @@ public class ScoreCheckController {
         log.info("教师：{}|创建用户:{}",UserContext.getUserName(),adminBo.getUserName());
         return scoreService.creatAdmin(adminBo);
     }
+
+    @GetMapping("/getUserList")
+    public ResultVo<?> getUserList(@RequestParam(defaultValue = "1") Integer pageNum, @RequestParam(defaultValue = "10") Integer pageSize) {
+        return scoreService.getUserList(pageNum, pageSize);
+    }
+
+    @PostMapping("/updateUser")
+    public ResultVo<?> updateUser(@RequestBody AdminBo adminBo) {
+        return scoreService.updateUser(adminBo);
+    }
+
+    @GetMapping("/deleteUser")
+    public ResultVo<?> deleteUser(@RequestParam String userName) {
+        return scoreService.deleteUser(userName);
+    }
 }
