@@ -1,13 +1,11 @@
 package com.score.service.impl;
 
-import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.stp.StpUtil;
 import com.alibaba.excel.EasyExcel;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.score.Listener.StudentImportListener;
 import com.score.common.ResultVo;
-import com.score.common.UserContext;
 import com.score.entity.Admin;
 import com.score.entity.Score;
 import com.score.entity.Student;
@@ -30,9 +28,8 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
+import java.math.BigDecimal;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -53,6 +50,14 @@ public class ScoreServiceImpl implements IScoreService {
         if (!StringUtils.hasText(bo.getIdCard())) {
             return ResultVo.error("查询失败：身份证号不能为空");
         }
+        //身份验证
+        LambdaQueryWrapper<Student> studentLqw = new LambdaQueryWrapper<>();
+        studentLqw.eq(Student::getStudentName, bo.getStudentName())
+                .eq(Student::getId, bo.getIdCard())
+                .eq(Student::getDelFlag,"0");
+        if(studentMapper.selectCount(studentLqw)==0){
+            return ResultVo.error("姓名或身份证号错误，请检查！");
+        }
         LambdaQueryWrapper<Score> lqw = buildScoreQueryWrapper(bo, true);
         return ResultVo.success(scoreMapper.studentQuery(lqw));
     }
@@ -60,9 +65,26 @@ public class ScoreServiceImpl implements IScoreService {
     @Override
     public ResultVo<?> checkList(StudentQueryScoreBo bo) {
         // 多租户隔离由拦截器自动注入上下文，插件自动拦截
-        Page<Score> page = new Page<>(bo.getPageNum(), bo.getPageSize());
-        LambdaQueryWrapper<Score> lqw = buildScoreQueryWrapper(bo, false);
-        return ResultVo.success(scoreMapper.selectPage(page, lqw));
+
+        LambdaQueryWrapper<Score> lqw =buildScoreQueryWrapper(bo, false);
+        List<Score> rawList = scoreMapper.selectList(lqw);
+        Map<String,Map<String,Object>> groupMap =new LinkedHashMap<>();
+        for(Score s:rawList){
+            String rowKey =s.getStudentName()+"_"+s.getExamName();
+            Map<String,Object> row =groupMap.computeIfAbsent(rowKey,k->{Map<String,Object> map=new HashMap<>();
+            map.put("studentName",s.getStudentName());
+            map.put("examName",s.getExamName());
+            map.put("className",s.getClassName());
+            map.put("createTime",s.getCreateTime());
+            map.put("subjects",new HashMap<String, BigDecimal>());
+            map.put("totalScore",BigDecimal.ZERO);
+            return map;});
+            Map<String,BigDecimal> subjects=(Map<String,BigDecimal>)row.get("subjects");
+            subjects.put(s.getSubject(),s.getScore());
+            BigDecimal currentTotal=(BigDecimal)row.get("totalScore");
+            row.put("totalScore",currentTotal.add(s.getScore()));
+        }
+        return ResultVo.success(new ArrayList<>(groupMap.values()));
     }
 
     @Override
@@ -102,7 +124,8 @@ public class ScoreServiceImpl implements IScoreService {
         // 4. 登录成功
         StpUtil.login(admin.getUserName());
         StpUtil.getSession().set("className", admin.getClassName());
-        return ResultVo.success(StpUtil.getTokenValue()+"登陆成功");
+        StpUtil.getSession().set("userName",admin.getUserName());
+        return ResultVo.success(StpUtil.getTokenValue()+"登录成功");
     }
 
     @Override
