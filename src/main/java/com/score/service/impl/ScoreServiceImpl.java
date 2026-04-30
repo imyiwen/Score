@@ -22,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -30,6 +31,11 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.*;
+
+/**
+ * @author imyiwen
+ * @data 2026/4/22 9:36
+ */
 
 @Slf4j
 @Service
@@ -51,15 +57,17 @@ public class ScoreServiceImpl implements IScoreService {
             return ResultVo.error("查询失败：身份证号不能为空");
         }
         //身份验证
-        LambdaQueryWrapper<Student> studentLqw = new LambdaQueryWrapper<>();
-        studentLqw.eq(Student::getStudentName, bo.getStudentName())
-                .eq(Student::getId, bo.getIdCard())
-                .eq(Student::getDelFlag,"0");
-        if(studentMapper.selectCount(studentLqw)==0){
+        if(studentMapper.checkStudent(bo.getStudentName(),bo.getIdCard())==0){
             return ResultVo.error("姓名或身份证号错误，请检查！");
         }
         LambdaQueryWrapper<Score> lqw = buildScoreQueryWrapper(bo, true);
-        return ResultVo.success(scoreMapper.studentQuery(lqw));
+        List<Score> scores = scoreMapper.studentQuery(lqw);
+        BigDecimal totalScore =scores.stream().map(Score::getScore).reduce(BigDecimal.ZERO, BigDecimal::add);
+        Map<String,Object> result=new HashMap<>();
+        result.put("score",scores);
+        result.put("totalScore",totalScore);
+        result.put("subjectCount",scores.size());
+        return ResultVo.success(result);
     }
 
     @Override
@@ -80,9 +88,10 @@ public class ScoreServiceImpl implements IScoreService {
             map.put("totalScore",BigDecimal.ZERO);
             return map;});
             Map<String,BigDecimal> subjects=(Map<String,BigDecimal>)row.get("subjects");
-            subjects.put(s.getSubject(),s.getScore());
+            BigDecimal score = s.getScore() != null ? s.getScore() : BigDecimal.ZERO;
+            subjects.put(s.getSubject(), score);
             BigDecimal currentTotal=(BigDecimal)row.get("totalScore");
-            row.put("totalScore",currentTotal.add(s.getScore()));
+            row.put("totalScore",currentTotal.add(score));
         }
         return ResultVo.success(new ArrayList<>(groupMap.values()));
     }
@@ -128,12 +137,12 @@ public class ScoreServiceImpl implements IScoreService {
         return ResultVo.success(StpUtil.getTokenValue()+"登录成功");
     }
 
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public ResultVo<?> importStudent(MultipartFile file, String className) {
-        String realClassName = (String) StpUtil.getSession().get("className");
         try {
             EasyExcel.read(file.getInputStream(), StudentImportExcelVo.class, 
-                    new StudentImportListener(studentMapper, realClassName))
+                    new StudentImportListener(studentMapper, className))
                     .sheet()
                     .doRead();
             return ResultVo.success("学生信息导入成功");
@@ -143,57 +152,57 @@ public class ScoreServiceImpl implements IScoreService {
         }
     }
 
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public ResultVo<?> importScores(MultipartFile file, String examName, String className) {
-        String realClassName = (String) StpUtil.getSession().get("className");
         try {
-            List<ScoreImportExcelVo> list = EasyExcel.read(file.getInputStream())
-                    .head(ScoreImportExcelVo.class)
-                    .sheet()
-                    .doReadSync();
-
-            List<Score> scores = new ArrayList<>();
-            String lastStudentName = "";
-
-            for (ScoreImportExcelVo vo : list) {
-                if (vo == null || (!StringUtils.hasText(vo.getStudentName()) && !StringUtils.hasText(vo.getSubject()))) {
-                    continue;
-                }
-                if (!StringUtils.hasText(vo.getStudentName())) {
-                    vo.setStudentName(lastStudentName);
-                } else {
-                    lastStudentName = vo.getStudentName();
-                }
-
-                LambdaQueryWrapper<Student> queryWrapper = new LambdaQueryWrapper<>();
-                queryWrapper.eq(Student::getStudentName, vo.getStudentName())
-                        .eq(Student::getDelFlag, "0");
-                List<Student> students = studentMapper.selectList(queryWrapper);
-
-                if (students.isEmpty()) {
-                    log.warn("学生[{}]不在档案中", vo.getStudentName());
-                    continue;
-                }
-                
-                Score score = new Score();
-                score.setStudentName(vo.getStudentName());
-                score.setIdCard(students.get(0).getIdCard());
-                score.setClassName(realClassName);
-                score.setSubject(vo.getSubject());
-                score.setScore(vo.getScore());
-                score.setExamName(examName);
-                score.setDelFlag("0");
-                score.setCreateTime(new Date());
-                scores.add(score);
-            }
+            // 读取 Excel 的表头（用于识别科目）
+            List<Map<Integer, String>> headList = EasyExcel.read(file.getInputStream()).sheet().headRowNumber(0).doReadSync();
+            if (headList.isEmpty()) return ResultVo.error("Excel文件为空");
             
-            for (Score score : scores) {
-                scoreMapper.insert(score);
+            Map<Integer, String> headMap = headList.get(0);
+            
+            // 读取数据部分
+            List<Map<Integer, String>> dataList = EasyExcel.read(file.getInputStream()).sheet().headRowNumber(1).doReadSync();
+
+            int successCount = 0;
+            for (Map<Integer, String> data : dataList) {
+                String studentName = data.get(1); // 假设姓名在第2列
+                if (!StringUtils.hasText(studentName)) continue;
+
+                // 查询学生身份证号
+                LambdaQueryWrapper<Student> queryWrapper = new LambdaQueryWrapper<>();
+                queryWrapper.eq(Student::getStudentName, studentName).eq(Student::getClassName, className).eq(Student::getDelFlag, "0");
+                Student student = studentMapper.selectOne(queryWrapper);
+                if (student == null) {
+                    log.warn("学生：{} 不在班级：{} 档案中，跳过", studentName, className);
+                    continue;
+                }
+
+                // 解析成绩列 (从第3列开始)
+                for (int i = 2; i < headMap.size(); i++) {
+                    String subject = headMap.get(i);
+                    String scoreStr = data.get(i);
+                    if (StringUtils.hasText(subject) && StringUtils.hasText(scoreStr)) {
+                        Score score = new Score();
+                        score.setStudentName(studentName);
+                        score.setIdCard(student.getIdCard());
+                        score.setClassName(className);
+                        score.setSubject(subject);
+                        score.setScore(new BigDecimal(scoreStr));
+                        score.setExamName(examName);
+                        score.setDelFlag("0");
+                        score.setCreateTime(new Date());
+
+                        scoreMapper.insert(score);
+                        successCount++;
+                    }
+                }
             }
-            return ResultVo.success("成功导入" + scores.size() + "条成绩记录");
-        } catch (IOException e) {
-            log.error("解析异常", e);
-            return ResultVo.error("解析Excel失败");
+            return ResultVo.success("成功导入：" + successCount + "条成绩记录");
+        } catch (Exception e) {
+            log.error("解析成绩异常", e);
+            return ResultVo.error("解析Excel失败：" + e.getMessage());
         }
     }
 

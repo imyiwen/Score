@@ -3,12 +3,10 @@ package com.score.controller;
 import com.score.common.CaptchaUtils;
 import com.score.common.ResultVo;
 import com.score.entity.vo.CaptchaVo;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
-import javax.xml.transform.Result;
 import java.util.Map;
 import java.util.UUID;
 
