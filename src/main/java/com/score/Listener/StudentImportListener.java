@@ -27,14 +27,8 @@ public class StudentImportListener extends AnalysisEventListener<StudentImportEx
 
     @Override
     public void invoke(StudentImportExcelVo data, AnalysisContext context) {
-        if (data == null || !StringUtils.hasText(data.getStudentName())) {
-            log.warn("跳过空行记录");
-            return;
-        }
-
-        // 基础校验
-        if (!StringUtils.hasText(data.getStudentName()) || !StringUtils.hasText(data.getIdCard())) {
-            log.warn("记录缺失关键信息，姓名：{}，身份证：{}", data.getStudentName(), data.getIdCard());
+        if (data == null || !StringUtils.hasText(data.getStudentName()) || !StringUtils.hasText(data.getIdCard())) {
+            log.warn("跳过空行或缺失关键信息");
             return;
         }
 
@@ -60,27 +54,21 @@ public class StudentImportListener extends AnalysisEventListener<StudentImportEx
     private void saveData() {
         if (cacheDataList.isEmpty()) return;
         for (Student student : cacheDataList) {
-            try {
-                // 检查是否已存在（根据身份证号）
-                LambdaQueryWrapper<Student> queryWrapper = new LambdaQueryWrapper<>();
-                queryWrapper.eq(Student::getIdCard, student.getIdCard());
-                Student existing = studentMapper.selectOne(queryWrapper);
+            // 检查是否已存在（根据身份证号）
+            LambdaQueryWrapper<Student> queryWrapper = new LambdaQueryWrapper<>();
+            queryWrapper.eq(Student::getIdCard, student.getIdCard());
+            Student existing = studentMapper.selectOne(queryWrapper);
 
-                if (existing != null) {
-                    // 如果存在则更新（仅更新名字和班级，保持身份证唯一）
-                    existing.setStudentName(student.getStudentName());
-                    existing.setClassName(student.getClassName());
-                    studentMapper.updateById(existing);
-                    log.info("学生信息已更新: {}", student.getStudentName());
-                } else {
-                    // 不存在则插入
-                    studentMapper.insert(student);
-                    log.info("学生信息已新增: {}", student.getStudentName());
-                }
-            } catch (Exception e) {
-                log.error("处理学生记录失败: {}, 错误: {}", student.getStudentName(), e.getMessage());
-                // 抛出运行时异常以触发事务回滚
-                throw new RuntimeException("导入数据失败：" + e.getMessage());
+            if (existing != null) {
+                // 如果存在则更新（仅更新名字和班级，保持身份证唯一）
+                existing.setStudentName(student.getStudentName());
+                existing.setClassName(student.getClassName());
+                studentMapper.updateById(existing);
+                log.info("学生信息已更新: {}", student.getStudentName());
+            } else {
+                // 不存在则插入
+                studentMapper.insert(student);
+                log.info("学生信息已新增: {}", student.getStudentName());
             }
         }
     }

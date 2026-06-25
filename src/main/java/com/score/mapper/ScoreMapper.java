@@ -18,8 +18,8 @@ import java.util.List;
 
 @Mapper
 public interface ScoreMapper extends BaseMapper<Score> {
-    //忽略租户隔离
-    @InterceptorIgnore(tenantLine="true")
+    // 学生端查询忽略租户隔离，按姓名+身份证号查自己的成绩
+    @InterceptorIgnore(tenantLine = "true")
     @Select("SELECT * FROM score ${ew.customSqlSegment}")
     List<Score> studentQuery(@Param(Constants.WRAPPER) Wrapper<Score> queryWrapper);
 }

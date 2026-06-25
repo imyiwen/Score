@@ -25,6 +25,7 @@ public class Admin {
     @TableField("username")
     private String userName;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private String password;
     private String className;
 

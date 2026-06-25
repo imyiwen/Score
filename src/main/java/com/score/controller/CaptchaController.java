@@ -36,8 +36,10 @@ public class CaptchaController {
         }
         if(Math.abs(realX-moveX)<=5){
             session.setAttribute("captcha_verified_"+captchaId,true);
+            session.removeAttribute("captcha_x_"+captchaId);
             return ResultVo.success(captchaId);
         }
+        session.removeAttribute("captcha_x_"+captchaId);
         return ResultVo.error("验证码校验失败");
     }
 }

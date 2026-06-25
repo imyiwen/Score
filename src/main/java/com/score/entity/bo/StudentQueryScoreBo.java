@@ -1,6 +1,8 @@
 package com.score.entity.bo;
 
+import jakarta.validation.constraints.Pattern;
 import lombok.Data;
+
 
 /**
  * @author imyiwen
@@ -9,12 +11,12 @@ import lombok.Data;
 @Data
 public class StudentQueryScoreBo {
     private String studentName;
+
+    @Pattern(regexp = "^\\d{17}[\\dX]$", message = "身份证号格式不正确，应为18位")
     private String idCard;
+
     private String className;
     private String examName;
-
-    private Integer pageNum = 1;
-    private Integer pageSize = 10;
 
     /**
      * 恢复驼峰命名

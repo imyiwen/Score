@@ -1,7 +1,6 @@
 package com.score.common;
 
 import lombok.Data;
-import org.springframework.boot.autoconfigure.batch.BatchDataSourceScriptDatabaseInitializer;
 
 import javax.imageio.ImageIO;
 import java.awt.*;

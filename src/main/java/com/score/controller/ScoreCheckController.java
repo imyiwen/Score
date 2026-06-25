@@ -5,8 +5,10 @@ import com.score.common.ResultVo;
 import com.score.entity.bo.AdminBo;
 import com.score.entity.bo.StudentQueryScoreBo;
 import com.score.service.IScoreService;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -19,19 +21,19 @@ public class ScoreCheckController {
     private IScoreService scoreService;
 
     @PostMapping("/StudentCheck")
-    public ResultVo<?> studentQuery(@RequestBody StudentQueryScoreBo bo) {
-        log.info("学生：{}|查询成绩",bo.getStudentName(),bo.getIdCard());
+    public ResultVo<?> studentQuery(@Valid @RequestBody StudentQueryScoreBo bo) {
+        log.info("学生：{}{}|查询成绩",bo.getStudentName(),bo.getClassName());
         return scoreService.queryScore(bo);
     }
 
     @PostMapping("/login")
-    public ResultVo<?> login(@RequestBody AdminBo bo){
+    public ResultVo<?> login(@Valid @RequestBody AdminBo bo){
         log.info("教师：{}|登录系统", bo.getUserName());
         return scoreService.login(bo);
     }
 
     @PostMapping("/checkList")
-    public ResultVo<?> checkList(@RequestBody StudentQueryScoreBo searchBo){
+    public ResultVo<?> checkList(@Valid @RequestBody StudentQueryScoreBo searchBo){
         log.info("教师：{} | 查询成绩", StpUtil.getSession().get("userName"));
         return scoreService.checkList(searchBo);
     }
@@ -49,7 +51,7 @@ public class ScoreCheckController {
     }
 
     @PostMapping("/creatAdmin")
-    public ResultVo<?> creatAdmin(@RequestBody AdminBo adminBo){
+    public ResultVo<?> creatAdmin(@Valid @RequestBody AdminBo adminBo){
         log.info("教师：{}|创建用户:{}",StpUtil.getSession().get("userName"), adminBo.getUserName());
         return scoreService.creatAdmin(adminBo);
     }
@@ -60,12 +62,18 @@ public class ScoreCheckController {
     }
 
     @PostMapping("/updateUser")
-    public ResultVo<?> updateUser(@RequestBody AdminBo adminBo) {
+    public ResultVo<?> updateUser(@Valid @RequestBody AdminBo adminBo) {
         return scoreService.updateUser(adminBo);
     }
 
-    @GetMapping("/deleteUser")
-    public ResultVo<?> deleteUser(@RequestParam String userName) {
+    @DeleteMapping("/{userName}")
+    public ResultVo<?> deleteUser(@PathVariable String userName) {
         return scoreService.deleteUser(userName);
+    }
+
+    @PostMapping("/logout")
+    public ResultVo<?> logout() {
+        StpUtil.logout();
+        return ResultVo.success("退出登录成功");
     }
 }

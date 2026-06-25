@@ -8,6 +8,7 @@ import com.score.entity.bo.AdminBo;
 import com.score.entity.bo.StudentQueryScoreBo;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 
 /**
