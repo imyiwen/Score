@@ -58,3 +58,5 @@ captcha_docs_screenshot.png
 fix_login3.py
 /docs/
 /src/main/resources/bgimages/
+/.idea/
+/docs/
