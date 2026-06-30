@@ -25,9 +25,9 @@ public class SaTokenConfig implements WebMvcConfigurer {
                             "/scoreCheck/login",
                             "/scoreCheck/StudentCheck",
                             "/scoreCheck/logout",
-                            "/captcha/get",
+                            "/captcha/genCaptcha",
                             "/captcha/check"
-                    ) // 排除登录、学生查询和退出接口
+                    ) // 排除登录、学生查询和验证码接口
                     .check(r -> StpUtil.checkLogin());
         })).addPathPatterns("/**");
     }

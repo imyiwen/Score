@@ -54,3 +54,7 @@ yarn-debug.log*
 yarn-error.log*
 .codebuddy/
 score-frontend/
+captcha_docs_screenshot.png
+fix_login3.py
+/docs/
+/src/main/resources/bgimages/

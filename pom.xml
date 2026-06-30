@@ -81,6 +81,13 @@
             <version>13.0</version>
             <scope>compile</scope>
         </dependency>
+        <!-- maven导入 -->
+        <dependency>
+            <groupId>cloud.tianai.captcha</groupId>
+            <artifactId>tianai-captcha-springboot-starter</artifactId>
+            <version>1.5.5</version>
+        </dependency>
+
     </dependencies>
     <build>
         <plugins>

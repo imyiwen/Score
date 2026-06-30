@@ -1,5 +1,6 @@
 package com.score.service.impl;
 
+import cloud.tianai.captcha.application.ImageCaptchaApplication;
 import cn.dev33.satoken.stp.StpUtil;
 import com.alibaba.excel.EasyExcel;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -46,6 +47,8 @@ public class ScoreServiceImpl implements IScoreService {
     private ScoreMapper scoreMapper;
     @Autowired
     private StudentMapper studentMapper;
+    @Autowired
+    private ImageCaptchaApplication imageCaptchaApplication;
 
     @Override
     public ResultVo<?> queryScore(StudentQueryScoreBo bo) {

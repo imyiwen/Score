@@ -1,45 +1,71 @@
 package com.score.controller;
 
-import com.score.common.CaptchaUtils;
-import com.score.common.ResultVo;
-import com.score.entity.vo.CaptchaVo;
+import cloud.tianai.captcha.application.ImageCaptchaApplication;
+import cloud.tianai.captcha.application.vo.ImageCaptchaVO;
+import cloud.tianai.captcha.common.constant.CaptchaTypeConstant;
+import cloud.tianai.captcha.common.response.ApiResponse;
+import cloud.tianai.captcha.validator.common.model.dto.ImageCaptchaTrack;
 import jakarta.servlet.http.HttpSession;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
-import java.util.UUID;
+import java.util.Collections;
 
 /**
+ * 验证码控制器
+ *
  * @author imyiwen
- * @data 2026/4/29 10:12
+ * @data 2026/6/30
  */
+
 @RestController
 @RequestMapping("/captcha")
 @Slf4j
 public class CaptchaController {
-    @GetMapping("/get")
-    public ResultVo<?>getCaptcha(HttpSession session) throws Exception {
-        CaptchaUtils.CaptchaResult result = new CaptchaUtils.CaptchaResult();
-        CaptchaUtils.createCaptcha(result);
-        String captchaId = UUID.randomUUID().toString();
-        session.setAttribute("captcha_x_"+captchaId,result.getX());
-        return ResultVo.success(new CaptchaVo(captchaId,result.getBackBase64(),result.getSliderBase64()));
+    @Autowired
+    private ImageCaptchaApplication application;
+
+    @Autowired
+    private HttpSession httpSession;
+
+    /**
+     * 生成验证码
+     * @return 验证码数据
+     */
+    @PostMapping("/genCaptcha")
+    public ApiResponse<ImageCaptchaVO> genCaptcha() {
+        // 1.生成验证码(该数据返回给前端用于展示验证码数据)
+        // 参数1为具体的验证码类型， 默认支持 SLIDER、ROTATE、WORD_IMAGE_CLICK、CONCAT 等验证码类型，详见： `CaptchaTypeConstant`类
+        return application.generateCaptcha(CaptchaTypeConstant.SLIDER);
     }
+
+    /**
+     * 校验验证码
+     * @param data 验证码数据
+     * @return 校验结果
+     */
     @PostMapping("/check")
-    public ResultVo<?> checkCaptcha(@RequestBody Map<String,Object>data,HttpSession session){
-        String captchaId=(String) data.get("captchaId");
-        Integer moveX=(Integer) data.get("moveX");
-        Integer realX=(Integer) session.getAttribute("captcha_x_"+captchaId);
-        if(realX==null){
-            return ResultVo.error("验证码已过期");
+    @ResponseBody
+    public ApiResponse<?> checkCaptcha(@RequestBody Data data) {
+        ApiResponse<?> response = application.matching(data.getId(), data.getData());
+        if (response.isSuccess()) {
+            // 验证码校验成功，将 captchaId 标记存入 Session
+
+            httpSession.setAttribute("captcha_verified_" + data.getId(), true);
+            log.info("验证码校验成功，captchaId: {}", data.getId());
+            return ApiResponse.ofSuccess(Collections.singletonMap("id", data.getId()));
         }
-        if(Math.abs(realX-moveX)<=5){
-            session.setAttribute("captcha_verified_"+captchaId,true);
-            session.removeAttribute("captcha_x_"+captchaId);
-            return ResultVo.success(captchaId);
-        }
-        session.removeAttribute("captcha_x_"+captchaId);
-        return ResultVo.error("验证码校验失败");
+        log.warn("验证码校验失败，captchaId: {}", data.getId());
+        return response;
+    }
+
+    @lombok.Data
+    public static class Data {
+        // 验证码id,前端回传的验证码ID
+        private String id;
+        // 验证码数据,前端回传的验证码轨迹数据
+        private ImageCaptchaTrack data;
     }
 }
